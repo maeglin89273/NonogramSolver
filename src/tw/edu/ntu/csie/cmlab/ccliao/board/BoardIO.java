@@ -3,12 +3,8 @@ package tw.edu.ntu.csie.cmlab.ccliao.board;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.IntStream;
 
 public class BoardIO {
 
@@ -47,7 +43,7 @@ public class BoardIO {
             writer.write("$" + counter + "\n");
             BoardState state = board.getBoardState();
             for (int row = 0; row < state.size; row++) {
-                String[] rowStrs = convertBytesToStrings(state.data[row]);
+                String[] rowStrs = convertBitsToStrings(state.grid[row]);
                 writer.write(String.join("\t", rowStrs) + "\n");
             }
             counter++;
@@ -57,10 +53,10 @@ public class BoardIO {
 
     }
 
-    private static String[] convertBytesToStrings(byte[] bytes) {
-        String[] strs = new String[bytes.length];
-        for (int i = 0; i < bytes.length; i++) {
-            strs[i] = Byte.toString(bytes[i]);
+    private static String[] convertBitsToStrings(BitSet row) {
+        String[] strs = new String[row.size()];
+        for (int i = 0; i < row.size(); i++) {
+            strs[i] = row.get(i)? "1": "0";
         }
         return strs;
     }

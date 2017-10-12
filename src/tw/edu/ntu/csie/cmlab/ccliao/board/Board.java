@@ -18,6 +18,14 @@ public class Board {
         return this.state;
     }
 
+    public int getSize() {
+        return this.state.size;
+    }
+
+    public BoardHint getHint() {
+        return hint;
+    }
+
     public boolean isBoardValid() {
         for (int i = 0; i < state.size; i++) {
             if (!this.isRowValid(i)) {
@@ -44,7 +52,7 @@ public class Board {
 
         // general case
         for (int col = 0; col < this.state.size; col++) {
-            if (this.state.data[i][col] == BoardState.FILLED) {
+            if (this.state.grid[i].get(col)) {
                 filledCellCount++;
 
             } else if (filledCellCount > 0) {
@@ -83,7 +91,7 @@ public class Board {
 
         // general case
         for (int row = 0; row < this.state.size; row++) {
-            if (this.state.data[row][i] == BoardState.FILLED) {
+            if (this.state.grid[row].get(i)) {
                 filledCellCount++;
 
             } else if (filledCellCount > 0) {
