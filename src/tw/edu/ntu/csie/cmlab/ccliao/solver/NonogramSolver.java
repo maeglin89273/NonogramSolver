@@ -6,15 +6,15 @@ import tw.edu.ntu.csie.cmlab.ccliao.board.BoardHint;
 import java.util.*;
 
 public class NonogramSolver {
-    public static final String DFS1 = "DFS1";
+    public static final String SILLY_DFS = "Silly-DFS";
     public static final String DFS2 = "DFS2";
     public static final String IDFA_STAR = "IDFA*";
 
     private final String algorithm;
     private final boolean wantPresolve;
 
-    private BitSet[][] validRows; // [rowIdx][validPossibilityIdx]
-    private BitSet[][] validCols; // [colIdx][validPossibilityIdx]
+    private List<BitSet>[] validRows; // [rowIdx][validPossibilityIdx]
+    private List<BitSet>[] validCols; // [colIdx][validPossibilityIdx]
 
     // make the constructor private, since avoiding reusing the solver
     private NonogramSolver(String algorithm) {
@@ -48,7 +48,7 @@ public class NonogramSolver {
         }
 
         switch (this.algorithm) {
-            case DFS1:
+            case SILLY_DFS:
                 break;
 
             case DFS2:
@@ -65,8 +65,8 @@ public class NonogramSolver {
         return board;
     }
 
-    private static BitSet[][] generateValidLinesFromHints(int[][] hints, final int lineLength) {
-        BitSet[][] rowOfLines = new BitSet[hints.length][];
+    private static List<BitSet>[] generateValidLinesFromHints(int[][] hints, final int lineLength) {
+        List<BitSet>[] rowOfLines = (List<BitSet>[]) new List[hints.length];
         for (int i = 0; i < rowOfLines.length; i++) {
             rowOfLines[i] = generateValidLinesFromHint(hints[i], lineLength);
         }
@@ -82,57 +82,62 @@ public class NonogramSolver {
 
     }
 
-    private static BitSet[] generateValidLinesFromHint(int[] hint, final int lineLength) {
-        if (hint.length == 0) {
-            return new BitSet[] {new BitSet(lineLength)};
+    private static List<BitSet> generateValidLinesFromHint(int[] hint, final int lineLength) {
+        List<BitSet> validLines = new LinkedList<>();
+
+        if (hint.length == 0) { // special case, not fit the permutation algorithm
+            validLines.add(new BitSet(lineLength));
+            return validLines;
         }
 
 
-        List<BitSet> validLines = new LinkedList<>();
+        final int allocatableBlankAmount = lineLength - (Arrays.stream(hint).sum() + (hint.length - 1));
+        BlankAllocationRecord record = new BlankAllocationRecord(allocatableBlankAmount);
 
 
-        final int allocatableSpaceAmount = lineLength - (Arrays.stream(hint).sum() + (hint.length - 1));
-        SpaceAllocationRecord record = new SpaceAllocationRecord(allocatableSpaceAmount);
+        Deque<BlankAllocationRecord> blankAllocationStack = new LinkedList<>();
+        blankAllocationStack.push(record);
 
-
-        Deque<SpaceAllocationRecord> spaceAllocationStack = new LinkedList<>();
-        spaceAllocationStack.push(record);
-
-        while (!spaceAllocationStack.isEmpty()) {
-            record = spaceAllocationStack.peek();
-            record.useSpace();
+        while (!blankAllocationStack.isEmpty()) {
+            record = blankAllocationStack.peek();
+            record.useBlank();
 
             if (record.isOverUsed()) { // end of level
-                spaceAllocationStack.pop();
+                blankAllocationStack.pop();
 
-            } else if (!record.hasAllocableSpace() || spaceAllocationStack.size() == hint.length) {
-                // no more space to allocate or at the last space inserting point
-                validLines.add(generateLine(hint, spaceAllocationStack, lineLength));
+            } else if (!record.hasAllocableBlank() || blankAllocationStack.size() == hint.length) {
+                // no more blank to allocate or at the last blank inserting point
+                validLines.add(generateLine(hint, blankAllocationStack, lineLength));
             } else {
 
-                record = new SpaceAllocationRecord(record.allocableAmount());
-                spaceAllocationStack.push(record);
+                record = new BlankAllocationRecord(record.allocableAmount());
+                blankAllocationStack.push(record);
             }
 
         }
 
-        return validLines.toArray(new BitSet[validLines.size()]);
+        return validLines;
 
     }
 
-    private static BitSet generateLine(int[] hint, Iterable<SpaceAllocationRecord> insertedSpaces, final int lineLength) {
+    private static BitSet generateLine(int[] hint, Iterable<BlankAllocationRecord> insertedBlanks, final int lineLength) {
         BitSet line = new BitSet(lineLength);
-        Iterator<SpaceAllocationRecord> iterator = insertedSpaces.iterator();
+        Iterator<BlankAllocationRecord> iterator = insertedBlanks.iterator();
 
-        int spaceAmount = iterator.next().usedSpaceAmount;
-        int stripStart = spaceAmount; // skip the first space
+
+        int stripStart = iterator.next().usedBlankAmount; // skip the first blank
         int stripEnd = stripStart + hint[0];
         line.set(stripStart, stripEnd); // fill the first strip
 
+        int i = 1;
+        while (iterator.hasNext()) { // blanks + strips
+            stripStart =  stripEnd + iterator.next().usedBlankAmount + 1;
+            stripEnd = stripStart + hint[i++];
+            line.set(stripStart, stripEnd);
+        }
 
-        for (int i = 1; i < hint.length; i++) {
-            spaceAmount = 1 + (iterator.hasNext()? iterator.next().usedSpaceAmount: 0);
-            stripStart =  stripEnd + spaceAmount;
+        for (; i < hint.length; i++) { // remaining strips
+            stripStart =  stripEnd + 1;
             stripEnd = stripStart + hint[i];
             line.set(stripStart, stripEnd);
         }
@@ -141,28 +146,28 @@ public class NonogramSolver {
         return line;
     }
 
-    private static class SpaceAllocationRecord {
-        private int usedSpaceAmount;
-        private final int remainingSpaceAmount;
+    private static class BlankAllocationRecord {
+        private int usedBlankAmount;
+        private final int remainingBlankAmount;
 
-        private SpaceAllocationRecord(int remainingSpaceAmount) {
-            this.usedSpaceAmount = -1;
-            this.remainingSpaceAmount = remainingSpaceAmount;
+        private BlankAllocationRecord(int remainingBlankAmount) {
+            this.usedBlankAmount = -1;
+            this.remainingBlankAmount = remainingBlankAmount;
         }
 
-        void useSpace() {
-            this.usedSpaceAmount++;
+        void useBlank() {
+            this.usedBlankAmount++;
         }
 
         boolean isOverUsed() {
-            return this.usedSpaceAmount > this.remainingSpaceAmount;
+            return this.usedBlankAmount > this.remainingBlankAmount;
         }
 
         int allocableAmount() {
-            return this.remainingSpaceAmount - this.usedSpaceAmount;
+            return this.remainingBlankAmount - this.usedBlankAmount;
         }
 
-        boolean hasAllocableSpace() {
+        boolean hasAllocableBlank() {
             return allocableAmount() > 0;
         }
     }
