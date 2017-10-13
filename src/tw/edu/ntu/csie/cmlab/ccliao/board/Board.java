@@ -3,15 +3,24 @@ package tw.edu.ntu.csie.cmlab.ccliao.board;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.BiFunction;
 
-public class Board {
+public class Board implements Cloneable {
 
     private BoardState state;
     private BoardHint hint;
+    private BiFunction<Integer, Integer, Boolean>[] cellGetters;
+
 
     Board(BoardState state, BoardHint hint) {
         this.state = state;
         this.hint = hint;
+
+        BiFunction<Integer, Integer, Boolean> rowCellGetter = (row, col) -> this.state.grid[row].get(col);
+        BiFunction<Integer, Integer, Boolean> colCellGetter = (col, row) -> this.state.grid[row].get(col);
+
+        this.cellGetters = new BiFunction[]{rowCellGetter, colCellGetter};
+
     }
 
     public BoardState getBoardState() {
@@ -27,32 +36,26 @@ public class Board {
     }
 
     public boolean isBoardValid() {
-        for (int i = 0; i < state.size; i++) {
-            if (!this.isRowValid(i)) {
-                return false;
-            }
-        }
 
-        for (int i = 0; i < state.size; i++) {
-            if (!this.isColumnValid(i)) {
-                return false;
+
+        for (int getterI = 0; getterI < cellGetters.length; getterI++) {
+            for (int i = 0; i < state.size; i++) {
+                if (!this.isLineValid(this.hint.getLineHint(getterI, i), i, cellGetters[getterI])) {
+                    return false;
+                }
             }
         }
 
         return true;
     }
 
-    public boolean isRowValid(int i) {
-        int[] rowHint = this.hint.getRow(i);
+    public boolean isLineValid(int[] hint, int i, BiFunction<Integer, Integer, Boolean> cellGetter) {
 
         List<Integer> rowStrips = new LinkedList<>();
 
-
         int filledCellCount = 0;
-
-        // general case
-        for (int col = 0; col < this.state.size; col++) {
-            if (this.state.grid[i].get(col)) {
+        for (int j = 0; j < this.state.size; j++) {
+            if (cellGetter.apply(i, j)) {
                 filledCellCount++;
 
             } else if (filledCellCount > 0) {
@@ -66,10 +69,10 @@ public class Board {
         }
 
 
-        if (rowHint.length == rowStrips.size()) {
+        if (hint.length == rowStrips.size()) {
             int j = 0;
             for (int stripLen: rowStrips) {
-                if (rowHint[j] != stripLen) {
+                if (hint[j] != stripLen) {
                     return false;
                 }
                 j++;
@@ -81,43 +84,9 @@ public class Board {
         return false;
     }
 
-    public boolean isColumnValid(int i) {
-        int[] colHint = this.hint.getColumn(i);
 
-        List<Integer> colStrips = new LinkedList<>();
-
-
-        int filledCellCount = 0;
-
-        // general case
-        for (int row = 0; row < this.state.size; row++) {
-            if (this.state.grid[row].get(i)) {
-                filledCellCount++;
-
-            } else if (filledCellCount > 0) {
-                colStrips.add(filledCellCount);
-                filledCellCount = 0;
-            }
-        }
-
-        if (filledCellCount > 0) {
-            colStrips.add(filledCellCount);
-        }
-
-
-        if (colHint.length == colStrips.size()) {
-            int j = 0;
-            for (int stripLen: colStrips) {
-                if (colHint[j] != stripLen) {
-                    return false;
-                }
-                j++;
-            }
-
-            return true;
-        }
-
-        return false;
+    @Override
+    public Board clone() {
+        return new Board(this.state.clone(), this.hint);
     }
-
 }

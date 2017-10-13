@@ -19,20 +19,24 @@ public class Main {
 
 
 	    if ( args.length < 2) {
-	        System.out.println("Main.java size algorithm");
+	        System.out.println("Main.java algorithm < question.txt");
 	        return;
         }
 
-        int boardSize = Integer.parseInt(args[0]);
-	    String algorithm = args[1];
+        String algorithm = args[0];
 
-        Scanner scanner = new Scanner(new FileInputStream(args[2]));
+        Scanner scanner = new Scanner(new FileInputStream(args[1]));
 
-        Iterable<Board> boards = BoardIO.readQuestions(scanner, boardSize);
+        Iterable<Board> boards = BoardIO.readQuestions(scanner);
         List<Board> solvedBoards = new LinkedList<>();
 
         for (Board board: boards) {
-            solvedBoards.add(NonogramSolver.solve(board, algorithm, true));
+            board = NonogramSolver.solve(board, algorithm, true);
+
+            if (board == null) {
+                return;
+            }
+            solvedBoards.add(board);
         }
 
         BoardIO.writeBoards("my_solution.txt", solvedBoards);
