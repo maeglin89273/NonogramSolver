@@ -1,25 +1,27 @@
 package tw.edu.ntu.csie.cmlab.ccliao.solver.search;
 
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
+import java.util.*;
 
-public class DepthFirstSearch extends TreeSearch {
+public class BestFirstSearch extends TreeSearch {
 
-    protected Deque<GameState> stack = new LinkedList<>();
+    protected Queue<HeuristicGameState> queue = new PriorityQueue<>();
 
 
     @Override
     public boolean search(GameState initialState) {
+        if (!(initialState instanceof HeuristicGameState)) {
+            return false;
+        }
+        HeuristicGameState hInitialState = (HeuristicGameState)initialState;
 
         initialState.prepareNextPossibleStates();
-        this.stack.push(initialState);
+        this.queue.add(hInitialState);
 
-        while (!this.stack.isEmpty()) {
-            GameState curState = this.stack.peek();
+        while (!this.queue.isEmpty()) {
+            GameState curState = this.queue.peek();
 
             if (!curState.hasNext()) { // branches depleted
-                this.stack.pop();
+                this.queue.poll();
                 continue;
             }
 
@@ -34,11 +36,11 @@ public class DepthFirstSearch extends TreeSearch {
 
 
             nextState.prepareNextPossibleStates();
-            this.stack.push(nextState);
+            this.queue.add((HeuristicGameState)nextState);
 
         }
 
-//        System.out.println("Warning: cannot find a valid solution");
+        System.out.println("Warning: cannot find a valid solution");
         return false;
     }
 }

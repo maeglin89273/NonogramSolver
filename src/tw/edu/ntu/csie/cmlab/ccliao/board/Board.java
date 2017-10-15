@@ -37,10 +37,9 @@ public class Board implements Cloneable {
 
     public boolean isBoardValid() {
 
-
         for (int getterI = 0; getterI < cellGetters.length; getterI++) {
-            for (int i = 0; i < state.size; i++) {
-                if (!this.isLineValid(this.hint.getLineHint(getterI, i), i, cellGetters[getterI])) {
+            for (int lineIdx = 0; lineIdx < state.size; lineIdx++) {
+                if (!this.isLineValid(this.hint.getLineHint(getterI, lineIdx), lineIdx, cellGetters[getterI])) {
                     return false;
                 }
             }
@@ -49,13 +48,13 @@ public class Board implements Cloneable {
         return true;
     }
 
-    public boolean isLineValid(int[] hint, int i, BiFunction<Integer, Integer, Boolean> cellGetter) {
+    public boolean isLineValid(int[] hint, int lineIdx, BiFunction<Integer, Integer, Boolean> cellGetter) {
 
         List<Integer> rowStrips = new LinkedList<>();
 
         int filledCellCount = 0;
-        for (int j = 0; j < this.state.size; j++) {
-            if (cellGetter.apply(i, j)) {
+        for (int cellIdx = 0; cellIdx < this.state.size; cellIdx++) {
+            if (cellGetter.apply(lineIdx, cellIdx)) {
                 filledCellCount++;
 
             } else if (filledCellCount > 0) {

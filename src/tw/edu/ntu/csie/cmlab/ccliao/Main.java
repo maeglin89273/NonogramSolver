@@ -2,13 +2,10 @@ package tw.edu.ntu.csie.cmlab.ccliao;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
 import tw.edu.ntu.csie.cmlab.ccliao.board.BoardIO;
+import tw.edu.ntu.csie.cmlab.ccliao.solver.AnalysisLogger;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.NonogramSolver;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Arrays;
+import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -30,6 +27,7 @@ public class Main {
         Iterable<Board> boards = BoardIO.readQuestions(scanner);
         List<Board> solvedBoards = new LinkedList<>();
 
+
         for (Board board: boards) {
             board = NonogramSolver.solve(board, algorithm, true);
 
@@ -38,8 +36,10 @@ public class Main {
             }
             solvedBoards.add(board);
         }
+        AnalysisLogger.totalTime();
 
-        BoardIO.writeBoards("my_solution.txt", solvedBoards);
+
+        BoardIO.writeBoards(new PrintStream("my_solution.txt"), solvedBoards);
 
     }
 }

@@ -1,8 +1,7 @@
 package tw.edu.ntu.csie.cmlab.ccliao.board;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -14,18 +13,18 @@ public class BoardIO {
         List<int[]> hints = new LinkedList<>();
 
         while (true) {
-            if (input.hasNext(boardBeginPattern)) {
-                input.nextLine();
-                if (!hints.isEmpty()) { // last round
-                    boards.add(packBoard(hints));
-                    hints.clear();
-                }
-
-
-            } else if (input.hasNextLine()) {
+            if (input.hasNextLine()) {
                 String line = input.nextLine();
-                int[] hint = line.isEmpty()? new int[0]: Arrays.stream(line.split("\t")).mapToInt(Integer::parseInt).toArray();
-                hints.add(hint);
+
+                if (boardBeginPattern.matcher(line).matches()) {
+                    if (!hints.isEmpty()) { // last round
+                        boards.add(packBoard(hints));
+                        hints.clear();
+                    }
+                } else {
+                    int[] hint = line.isEmpty()? new int[0]: Arrays.stream(line.split("\t")).mapToInt(Integer::parseInt).toArray();
+                    hints.add(hint);
+                }
 
             } else {
                 break;
@@ -51,23 +50,51 @@ public class BoardIO {
             counter++;
         }
 
+        hint.doStatistic();
         return new Board(new BoardState(boardSize), hint);
     }
 
-    public static void writeBoards(String fileName, Iterable<Board> boards) throws IOException {
-        Writer writer = new FileWriter(fileName);
-        int counter  = 1;
-        for (Board board: boards) {
-            writer.write("$" + counter + "\n");
-            BoardState state = board.getBoardState();
-            for (int row = 0; row < state.size; row++) {
-                String[] rowStrs = convertBitsToStrings(state.grid[row]);
-                writer.write(String.join("\t", rowStrs) + "\n");
+    private static Board inversePackBoard(List<int[]> hints) {
+        int boardSize = hints.size() / 2;
+        BoardHint hint = new BoardHint(boardSize);
+
+        int counter = 0;
+        for (int[] hintCell: hints) {
+            if (counter < boardSize) {
+                hint.setColumn(boardSize - 1 - counter, hintCell);
+            } else {
+                hint.setRow(  counter - boardSize, inverseHint(hintCell));
             }
             counter++;
         }
 
-        writer.close();
+        hint.doStatistic();
+        return new Board(new BoardState(boardSize), hint);
+    }
+
+    private static int[] inverseHint(int[] hintCell) {
+        int[] inverseHint = new int[hintCell.length];
+        for (int i = 0; i < inverseHint.length; i++) {
+            inverseHint[i] = hintCell[hintCell.length - 1 - i];
+        }
+
+        return inverseHint;
+    }
+
+    public static void writeBoards(PrintStream printer, Iterable<Board> boards) throws IOException {
+
+        int counter  = 1;
+        for (Board board: boards) {
+            printer.println("$" + counter);
+            BoardState state = board.getBoardState();
+            for (int row = 0; row < state.size; row++) {
+                String[] rowStrs = convertBitsToStrings(state.grid[row]);
+                printer.println(String.join("\t", rowStrs));
+            }
+            counter++;
+        }
+
+        printer.close();
 
     }
 

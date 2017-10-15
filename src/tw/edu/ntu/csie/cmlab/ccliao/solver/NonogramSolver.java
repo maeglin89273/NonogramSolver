@@ -2,19 +2,18 @@ package tw.edu.ntu.csie.cmlab.ccliao.solver;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.BitArray;
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
-import tw.edu.ntu.csie.cmlab.ccliao.board.BoardHint;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.DepthFirstSearch;
+import tw.edu.ntu.csie.cmlab.ccliao.solver.search.IterativeWidening;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.TreeSearch;
 
 import java.util.*;
 
 public class NonogramSolver {
     public static final String SILLY_DFS = "silly-dfs";
-    public static final String DFS2 = "DFS2";
-    public static final String IDFA_STAR = "IDFA*";
+    public static final String DFS1 = "dfs1";
+    public static final String DFS2 = "dfs2";
 
     private final String algorithm;
-    private final boolean wantPresolve;
 
     private List<BitArray>[] validRows; // [rowIdx][validPossibilityIdx]
     private List<BitArray>[] validCols; // [colIdx][validPossibilityIdx]
@@ -22,7 +21,6 @@ public class NonogramSolver {
     // make the constructor private, since avoiding reusing the solver
     private NonogramSolver(String algorithm) {
         this.algorithm = algorithm;
-        this.wantPresolve = true;
     }
 
     public static Board solve(Board board, String algorithm) {
@@ -39,38 +37,32 @@ public class NonogramSolver {
 
 
     private Board solveImpl(Board board, boolean log) {
-        BoardHint hint = board.getHint();
+        AnalysisLogger.setEnabled(log);
 
-        this.validRows = generateValidLinesByHints(hint.getRows(), board.getSize());
+        this.validRows = generateValidLinesByHints(board.getHint().getRows(), board.getSize());
 
-        AnalysisLogger.logLineCombimationNumber("row", this.validRows);
+        this.presolve(board);
 
-
-        if (this.wantPresolve) {
-            if (log) {
-                AnalysisLogger.startTiming();
-                this.presolve(board);
-                AnalysisLogger.stopTiming("presolve");
-                AnalysisLogger.logLineCombimationNumber("row", this.validRows);
-                AnalysisLogger.logLineCombimationNumber("col", this.validCols);
-            } else {
-                this.presolve(board);
-            }
-        }
-
+        AnalysisLogger.logLineCombimationNumber("after presolve row", this.validRows);
+        AnalysisLogger.logLineCombimationNumber("after presolve col", this.validCols);
 
         TreeSearch searchAlgorithm;
-        boolean hasSolved = false;
+        boolean hasSolved;
+
+        AnalysisLogger.startTiming();
         switch (this.algorithm) {
             case SILLY_DFS:
                 searchAlgorithm = new DepthFirstSearch();
                 hasSolved = searchAlgorithm.search(new NonogramGameState(board, this.validRows));
                 break;
 
-            case DFS2:
+            case DFS1:
+                hasSolved = this.dfs1(board);
                 break;
 
-            case IDFA_STAR:
+            case DFS2:
+                searchAlgorithm = new IterativeWidening();
+                hasSolved = searchAlgorithm.search(new NonogramCombHeuristicState(board, this.validRows, this.validCols));
                 break;
 
             default:
@@ -78,17 +70,34 @@ public class NonogramSolver {
                 return board;
         }
 
-        if (log) {
-            AnalysisLogger.divider();
-        }
+        AnalysisLogger.stopTiming("search");
+        AnalysisLogger.divider();
+
         return hasSolved? board: null;
     }
 
+    private boolean dfs1(Board board) {
+        TreeSearch searchAlgorithm = new IterativeWidening();
+        if (combinationNumLog(this.validCols) < combinationNumLog(this.validRows)) { // solve column-wise
+            return searchAlgorithm.search(new NonogramHeuristicState(board, validCols, 0));
+
+        } else { // solve row-wise
+            return searchAlgorithm.search(new NonogramHeuristicState(board, validRows, 1));
+        }
+    }
+
+    private static double combinationNumLog(List<BitArray>[] validLines) {
+        double logProduct = 0;
+        for (List<BitArray> array: validLines) {
+            logProduct += Math.log10(array.size());
+        }
+        return logProduct;
+    }
 
     private static List<BitArray>[] generateValidLinesByHints(int[][] hints, final int lineLength) {
         List<BitArray>[] rowOfLines = new List[hints.length];
 
-//        doing the for loop in parallel is not speeding up, slow down about 4~6 times
+//        doing the for loop in parallel is not speeding up, slowing down about 4~6 times
 //        Arrays.stream(hints).parallel().map(hint -> generateValidLinesByHint(hint, lineLength)).toArray(List[]::new);
 
         for (int i = 0; i < rowOfLines.length; i++) {
@@ -99,8 +108,7 @@ public class NonogramSolver {
     }
 
     private void presolve(Board board) {
-        BoardHint hint = board.getHint();
-        this.validCols = generateValidLinesByHints(hint.getColumns(), board.getSize());
+        this.validCols = generateValidLinesByHints(board.getHint().getColumns(), board.getSize());
 
         boolean hasElimination;
         do {
@@ -110,7 +118,7 @@ public class NonogramSolver {
 
     }
 
-    private boolean eliminatePossiblities(List<BitArray>[] axis1, List<BitArray>[] axis2) {
+    private static boolean eliminatePossiblities(List<BitArray>[] axis1, List<BitArray>[] axis2) {
         Intersection[] intersectionArray = new Intersection[axis1.length];
         int i = 0;
         for (List<BitArray> a1Lines: axis1) {
@@ -131,11 +139,11 @@ public class NonogramSolver {
         return hasElimination;
     }
 
-    private static boolean notMatchCellRemove(List<BitArray> possibilities, int i1, boolean cellValue) {
+    public static boolean notMatchCellRemove(List<BitArray> possibilities, int i1, boolean cellValue) {
         return possibilities.removeIf(line -> line.get(i1) != cellValue);
     }
 
-    private static Intersection intersectPossibilities(List<BitArray> possibilities) {
+    public static Intersection intersectPossibilities(List<BitArray> possibilities) {
         int lineSize = possibilities.get(0).size();
         Intersection intersection = new Intersection(lineSize);
 
@@ -149,9 +157,9 @@ public class NonogramSolver {
         return intersection;
     }
 
-    private static class Intersection {
-        private BitArray filledCells;
-        private BitArray blankCells;
+    public static class Intersection {
+        BitArray filledCells;
+        BitArray blankCells;
 
         Intersection(int lineSize) {
             this.filledCells = new BitArray(lineSize);
@@ -178,7 +186,7 @@ public class NonogramSolver {
 
 
         Deque<BlankAllocationRecord> blankAllocationStack = new LinkedList<>();
-        //since the permutation ordering is important, so the stack operations operate at the tail
+        //since the permutation ordering is important, so the queue operations operate at the tail
         blankAllocationStack.addLast(record);
 
         while (!blankAllocationStack.isEmpty()) {
@@ -194,7 +202,7 @@ public class NonogramSolver {
                 // no blank to allocate or at the last blank inserting point
                 validLines.add(generateLine(hint, blankAllocationStack, lineLength));
 
-            } else { //deepen the stack
+            } else { //deepen the queue
                 record = new BlankAllocationRecord(record.allocableAmount());
                 blankAllocationStack.addLast(record);
             }

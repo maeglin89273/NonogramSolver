@@ -2,12 +2,14 @@ package tw.edu.ntu.csie.cmlab.ccliao.board;
 
 public class BoardHint {
     private int[][][] hintData;
+    private int filledCellNumber;
 
     private static final int ROW_IDX = 0;
     private static final int COL_IDX = 1;
 
     BoardHint(int boardSize) {
         this.hintData = new int[2][boardSize][];
+
 
     }
 
@@ -19,6 +21,16 @@ public class BoardHint {
         this.hintData[COL_IDX][i] = column;
     }
 
+    void doStatistic() {
+        this.filledCellNumber = 0;
+        int[][] cols = getColumns();
+
+        for (int i = 0 ; i < cols.length; i++) {
+            for (int j = 0 ; j < cols[i].length; j++) {
+                this.filledCellNumber += cols[i][j];
+            }
+        }
+    }
 
     public int[] getRow(int i) {
         return this.hintData[ROW_IDX][i];
@@ -40,4 +52,13 @@ public class BoardHint {
     public int[] getLineHint(int axis, int i) {
         return this.hintData[axis][i];
     }
+
+    public int[][] getAxisHint(int axis) {
+        return this.hintData[axis];
+    }
+
+    public int totalFilledCellNumber() {
+        return this.filledCellNumber;
+    }
+
 }

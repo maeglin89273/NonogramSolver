@@ -15,4 +15,11 @@ public class BitArray extends BitSet {
     public int length() {
         return this.nbits;
     }
+
+    @Override
+    public Object clone() {
+        BitArray copy = new BitArray(this.length());
+        copy.or(this);
+        return copy;
+    }
 }
