@@ -2,6 +2,7 @@ package tw.edu.ntu.csie.cmlab.ccliao.solver;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.BitArray;
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
+import tw.edu.ntu.csie.cmlab.ccliao.board.BoardState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.GameState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.HeuristicGameState;
 
@@ -62,8 +63,6 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
             List<BitArray>[][] nextValidLines = this.assumeLine(possibleLine, result);
 
             if (nextValidLines != null) {
-
-                possibleBoard.getBoardState().setLine(result.axis, result.idx, possibleLine);
                 nextStates.offer(new NonogramCombHeuristicState(possibleBoard.clone(), nextValidLines, this.threshold));
             }
         }
@@ -106,9 +105,19 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
         if (!this.isEndState()) {
             return false;
         }
-
+        this.fillBoard();
         return this.board.isBoardValid();
     }
+
+    private void fillBoard() {
+        BoardState boardState = board.getBoardState();
+
+        for (int i = 0; i < validLines[0].length; i++) {
+            boardState.setRow(0, this.validLines[0][i].get(0));
+        }
+
+    }
+
 
     @Override
     public boolean isEndState() {
