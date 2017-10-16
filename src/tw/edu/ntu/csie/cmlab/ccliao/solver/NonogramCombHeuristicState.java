@@ -86,7 +86,8 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
         List<BitArray>[][] copy = new List[this.validLines.length][];
 
         for (int axis = 0; axis < copy.length; axis++) {
-            for (int i = 0; i < this.validLines[axis].length; i++) {
+            copy[axis] = new List[this.validLines[axis].length];
+            for (int i = 0; i < copy[axis].length; i++) {
                 copy[axis][i] = new LinkedList<>(this.validLines[axis][i]);
             }
         }
