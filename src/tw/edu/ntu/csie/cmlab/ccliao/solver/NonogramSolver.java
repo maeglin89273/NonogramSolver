@@ -40,8 +40,8 @@ public class NonogramSolver {
         AnalysisLogger.setEnabled(log);
 
         this.validRows = generateValidLinesByHints(board.getHint().getRows(), board.getSize());
-
-        this.presolve(board);
+        this.validCols = generateValidLinesByHints(board.getHint().getColumns(), board.getSize());
+        CrossSolve.solve(this.validRows, this.validCols);
 
         AnalysisLogger.logLineCombimationNumber("after presolve row", this.validRows);
         AnalysisLogger.logLineCombimationNumber("after presolve col", this.validCols);
@@ -107,68 +107,7 @@ public class NonogramSolver {
         return rowOfLines;
     }
 
-    private void presolve(Board board) {
-        this.validCols = generateValidLinesByHints(board.getHint().getColumns(), board.getSize());
 
-        boolean hasElimination;
-        do {
-            hasElimination = eliminatePossiblities(this.validRows, this.validCols);
-            hasElimination |= eliminatePossiblities(this.validCols, this.validRows);
-        } while (hasElimination);
-
-    }
-
-    private static boolean eliminatePossiblities(List<BitArray>[] axis1, List<BitArray>[] axis2) {
-        Intersection[] intersectionArray = new Intersection[axis1.length];
-        int i = 0;
-        for (List<BitArray> a1Lines: axis1) {
-            intersectionArray[i++] = intersectPossibilities(a1Lines);
-        }
-
-        boolean hasElimination = false;
-        for (int i1 = 0; i1 < axis1.length; i1++) {
-            for (int i2 = 0; i2 < axis2.length; i2++) {
-                if (intersectionArray[i1].filledCells.get(i2)) {
-                    hasElimination |= notMatchCellRemove(axis2[i2], i1, true);
-
-                } else if(intersectionArray[i1].blankCells.get(i2)) {
-                    hasElimination |= notMatchCellRemove(axis2[i2], i1, false);
-                }
-            }
-        }
-        return hasElimination;
-    }
-
-    public static boolean notMatchCellRemove(List<BitArray> possibilities, int i1, boolean cellValue) {
-        return possibilities.removeIf(line -> line.get(i1) != cellValue);
-    }
-
-    public static Intersection intersectPossibilities(List<BitArray> possibilities) {
-        int lineSize = possibilities.get(0).size();
-        Intersection intersection = new Intersection(lineSize);
-
-        for (BitArray line: possibilities) {
-            intersection.filledCells.and(line);
-            intersection.blankCells.or(line);
-        }
-
-        intersection.blankCells.flip(0, lineSize);
-
-        return intersection;
-    }
-
-    public static class Intersection {
-        BitArray filledCells;
-        BitArray blankCells;
-
-        Intersection(int lineSize) {
-            this.filledCells = new BitArray(lineSize);
-            this.blankCells = new BitArray(lineSize);
-
-            this.filledCells.set(0, lineSize);
-        }
-
-    }
 
     private static List<BitArray> generateValidLinesByHint(int[] hint, final int lineLength) {
         List<BitArray> validLines = new LinkedList<>();

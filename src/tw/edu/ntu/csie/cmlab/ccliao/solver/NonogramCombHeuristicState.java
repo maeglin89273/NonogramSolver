@@ -2,7 +2,6 @@ package tw.edu.ntu.csie.cmlab.ccliao.solver;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.BitArray;
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
-import tw.edu.ntu.csie.cmlab.ccliao.board.BoardState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.GameState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.HeuristicGameState;
 
@@ -12,136 +11,81 @@ import static tw.edu.ntu.csie.cmlab.ccliao.solver.NonogramSolver.intersectPossib
 
 public class NonogramCombHeuristicState implements HeuristicGameState {
 
-    private float threshold = 0.2f;
+    private float threshold;
     private int branchProgress = 0;
 
-    private final List<BitArray>[] validCols;
+
     private Board board;
     private final int cost;
-    private final PriorityRow[] sortedRows;
-    private final int progress;
+
 
     private Iterator<GameState> nextStateIterator;
     private int branchNumber;
 
+
+    private List<BitArray>[][] validLines;
+
     // branch contructor
-    protected NonogramCombHeuristicState(Board board, PriorityRow[] sortedRows, List<BitArray>[] validCols, int progess, float threshold) {
+    protected NonogramCombHeuristicState(Board board, List<BitArray>[][] validLines, float threshold) {
         this.board = board;
-        this.sortedRows = sortedRows;
-        this.validCols = validCols;
-        this.progress = progess;
+
+
+        this.validLines = validLines;
+
 //        this.cost = remainingColNumber(this.validCols);
-        this.cost = remainingRowNumber(this.sortedRows) + remainingColNumber(this.validCols);
+        this.cost = remainingLineNumber(this.validLines[0]) + remainingLineNumber(this.validLines[1]);
         this.threshold = threshold;
     }
 
     // root constructor
     public NonogramCombHeuristicState(Board board, List<BitArray>[] validRows, List<BitArray>[] validCols) {
-        this(board, sortValidRows(validRows), validCols, 0, 1);
+        this(board, new List[][]{validRows, validCols}, 1);
 
     }
 
-    private static PriorityRow[] sortValidRows(List<BitArray>[] validRows) {
-        PriorityRow[] pRows = new PriorityRow[validRows.length];
 
-        for (int i = 0; i < validRows.length; i++) {
-            pRows[i] = new PriorityRow(i, validRows[i]);
-        }
-
-        Arrays.sort(pRows, Comparator.comparingInt(pRow -> pRow.possiblities.size()));
-        return pRows;
-    }
-
-    private static int remainingColNumber(List<BitArray>[] validCols) {
-        return Arrays.stream(validCols).mapToInt(List::size).sum();
-    }
-
-    private static int remainingRowNumber(PriorityRow[] sortedRows) {
-        return Arrays.stream(sortedRows).mapToInt(pRow -> pRow.possiblities.size()).sum();
+    private static int remainingLineNumber(List<BitArray>[] possibleLines) {
+        return Arrays.stream(possibleLines).mapToInt(pLine -> pLine.size()).sum();
     }
 
     @Override
     public void prepareNextPossibleStates() {
         Queue<GameState> nextStates = new PriorityQueue<>();
-        final int advancedProgress = this.progress + 1; // current progress is also the advanced row index
 
-        PriorityRow pRow = this.sortedRows[0];
+
+        PickResult result = this.pickLessPossibleLine();
+        List<BitArray> pLine = result.minLine;
         Board possibleBoard = board.clone();
-        for (BitArray possibleRow: pRow.possiblities) {
+        for (BitArray possibleLine: pLine) {
 
-            List<BitArray>[] nextValidCols = this.assumeRow(pRow.idx, possibleRow);
+            List<BitArray>[][] nextValidLines = this.assumeLine(possibleLine, result);
 
-            if (nextValidCols != null) {
+            if (nextValidLines != null) {
 
-                possibleBoard.getBoardState().setRow(pRow.idx, possibleRow);
-                PriorityRow[] nextSortedRows = this.sortedRowsConstrainedByCols(nextValidCols);
-                nextStates.offer(new NonogramCombHeuristicState(possibleBoard.clone(), nextSortedRows, nextValidCols, advancedProgress, this.threshold));
+                possibleBoard.getBoardState().setLine(result.axis, result.idx, possibleLine);
+                nextStates.offer(new NonogramCombHeuristicState(possibleBoard.clone(), nextValidLines, this.threshold));
             }
         }
         this.branchNumber = nextStates.size();
         this.nextStateIterator = nextStates.iterator();
     }
 
-    private PriorityRow[] sortedRowsConstrainedByCols(List<BitArray>[] nextValidCols) {
+    private List<BitArray>[][] assumeLine(BitArray possibleLine, PickResult result) {
+        List<BitArray>[][] validLinesCopy = copyValidLines();
+        validLinesCopy[result.axis][result.idx].clear();
+        validLinesCopy[result.axis][result.idx].add(possibleLine);
 
-        NonogramSolver.Intersection[] intersectionArray = new NonogramSolver.Intersection[nextValidCols.length];
-        int i = 0;
-        for (List<BitArray> pCols: nextValidCols) {
-            intersectionArray[i++] = intersectPossibilities(pCols);
+        if (!CrossSolve.solve(validLinesCopy[0], validLinesCopy[1])) {
+            return null;
         }
 
-        PriorityRow[] sRowsCopy = this.sortedRowsCopyWithoutFirst();
-        int rowIdx;
-        for (int colIdx = 0; colIdx < nextValidCols.length; colIdx++) {
-            for (int pRowIdx = 0; pRowIdx < sRowsCopy.length; pRowIdx++) {
-                rowIdx = sRowsCopy[pRowIdx].idx;
-
-                if (intersectionArray[colIdx].filledCells.get(rowIdx)) {
-                    NonogramSolver.notMatchCellRemove(sRowsCopy[pRowIdx].possiblities, colIdx, true);
-
-                } else if (intersectionArray[colIdx].blankCells.get(rowIdx)) {
-                    NonogramSolver.notMatchCellRemove(sRowsCopy[pRowIdx].possiblities, colIdx, false);
-                }
-
-            }
-        }
-
-        Arrays.sort(sRowsCopy, Comparator.comparingInt(pRow -> pRow.possiblities.size()));
-        return sRowsCopy;
+        return validLinesCopy;
     }
 
-    private PriorityRow[] sortedRowsCopyWithoutFirst() {
-        PriorityRow[] copy = new PriorityRow[this.sortedRows.length - 1];
-        for (int i = 0; i < copy.length; i++) {
-            copy[i] = new PriorityRow(sortedRows[i + 1].idx, new LinkedList<>(sortedRows[i + 1].possiblities));
-        }
-
-        return copy;
+    private List<BitArray>[][] copyValidLines() {
+        return new List[0][];
     }
 
-
-    private List<BitArray>[] assumeRow(int rowIdx, BitArray possibleRow) {
-
-        List<BitArray>[] nextValidCols = new List[validCols.length];
-
-        for (int colIdx = 0; colIdx < this.validCols.length; colIdx++) {
-
-            List<BitArray> pCols = this.validCols[colIdx];
-            List<BitArray >nextPCols = new LinkedList<>();
-            nextValidCols[colIdx] = nextPCols;
-            for (BitArray col: pCols) { // filter out columns that match this row
-                if (col.get(rowIdx) == possibleRow.get(colIdx)) {
-                    nextPCols.add(col);
-                }
-            }
-            if (nextPCols.isEmpty()) {
-                return null;
-            }
-        }
-
-
-        return nextValidCols;
-    }
 
     @Override
     public int compareTo(HeuristicGameState gameStates) {
@@ -151,7 +95,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public boolean isGoal() {
-        if (this.progress < this.sortedRows.length) {
+        if (this.remainingLines.isEmpty()) {
             return false;
         }
 
@@ -160,7 +104,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public boolean isEndState() {
-        return this.progress == this.sortedRows.length;
+        return this.remainingLines.isEmpty();
     }
 
     @Override
@@ -204,13 +148,43 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
         return this.cost;
     }
 
-    private static class PriorityRow {
-        private int idx;
-        private List<BitArray> possiblities;
-        PriorityRow(int idx, List<BitArray> possiblities) {
-            this.idx = idx;
-            this.possiblities = possiblities;
+
+    PickResult pickLessPossibleLine() {
+        PickResult result = new PickResult();
+
+        List<BitArray> minLine = null;
+        int minPossiblity = Integer.MAX_VALUE;
+        int compare;
+
+        int minIdx = 0;
+        int minAxis = 0;
+
+        for (int axis = 0; axis < validLines.length; axis++) {
+            for (int i = 0; i < validLines[axis].length; i++) {
+                compare = validLines[axis][i].size();
+
+                if (compare > 1 && compare < minPossiblity) {
+                    minLine = validLines[axis][i];
+                    minPossiblity = compare;
+                    minAxis = axis;
+                    minIdx = i;
+                }
+            }
         }
+
+        assert minLine != null;
+
+        result.minLine = minLine;
+        result.axis = minAxis;
+        result.idx = minIdx;
+        return result;
     }
+
+    static class PickResult {
+        List<BitArray> minLine;
+        int idx;
+        int axis;
+    }
+
 
 }
