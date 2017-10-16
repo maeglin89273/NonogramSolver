@@ -7,7 +7,6 @@ import tw.edu.ntu.csie.cmlab.ccliao.solver.search.HeuristicGameState;
 
 import java.util.*;
 
-import static tw.edu.ntu.csie.cmlab.ccliao.solver.NonogramSolver.intersectPossibilities;
 
 public class NonogramCombHeuristicState implements HeuristicGameState {
 
@@ -29,11 +28,9 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
     protected NonogramCombHeuristicState(Board board, List<BitArray>[][] validLines, float threshold) {
         this.board = board;
 
-
         this.validLines = validLines;
 
-//        this.cost = remainingColNumber(this.validCols);
-        this.cost = remainingLineNumber(this.validLines[0]) + remainingLineNumber(this.validLines[1]);
+        this.cost = this.calculateCost();
         this.threshold = threshold;
     }
 
@@ -41,6 +38,10 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
     public NonogramCombHeuristicState(Board board, List<BitArray>[] validRows, List<BitArray>[] validCols) {
         this(board, new List[][]{validRows, validCols}, 1);
 
+    }
+
+    private int calculateCost() {
+        return remainingLineNumber(this.validLines[0]) + remainingLineNumber(this.validLines[1]);
     }
 
 
@@ -95,7 +96,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public boolean isGoal() {
-        if (this.remainingLines.isEmpty()) {
+        if (!this.isEndState()) {
             return false;
         }
 
@@ -104,7 +105,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public boolean isEndState() {
-        return this.remainingLines.isEmpty();
+        return this.cost == 2 * board.getSize();
     }
 
     @Override
