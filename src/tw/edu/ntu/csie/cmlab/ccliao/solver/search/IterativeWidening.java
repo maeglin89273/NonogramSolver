@@ -7,10 +7,11 @@ public class IterativeWidening extends TreeSearch {
 
         DepthFirstSearch dfs = new DepthFirstSearch();
 
-        for (float threshold = 0.2f; threshold <= 1; threshold *= 2) {
-            initialState.setThreshold(threshold);
+
+        for (float f = 2; f <= 32; f *= 2) {
+            initialState.setThreshold((f - 1)/f);
             if (dfs.search(initialState)) {
-                System.out.println(threshold);
+                System.out.format("branch width percentage: %f%n", (f - 1)/f);
                 return true;
             }
         }

@@ -27,6 +27,13 @@ public class BoardState implements Cloneable {
 
     }
 
+    public void setRows(Iterable<BitArray> rows) {
+        int i = 0;
+        for (BitArray row: rows) {
+            this.grid[i] = row;
+        }
+    }
+
     public void setColumn(int i, BitArray col) {
         for (int j = 0; j < this.grid.length; j++) {
             this.grid[j].set(i, col.get(j));

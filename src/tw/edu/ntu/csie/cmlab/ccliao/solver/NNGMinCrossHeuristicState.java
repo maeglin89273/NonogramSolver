@@ -2,14 +2,13 @@ package tw.edu.ntu.csie.cmlab.ccliao.solver;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.BitArray;
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
-import tw.edu.ntu.csie.cmlab.ccliao.board.BoardState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.GameState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.HeuristicGameState;
 
 import java.util.*;
 
 
-public class NonogramCombHeuristicState implements HeuristicGameState {
+public class NNGMinCrossHeuristicState implements HeuristicGameState {
 
     private float threshold;
     private int branchProgress = 0;
@@ -26,22 +25,23 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
     private List<BitArray>[][] validLines;
 
     // branch contructor
-    protected NonogramCombHeuristicState(Board board, List<BitArray>[][] validLines, float threshold) {
+    protected NNGMinCrossHeuristicState(Board board, List<BitArray>[][] validLines, float threshold) {
         this.board = board;
 
         this.validLines = validLines;
 
-        this.cost = this.calculateCost();
+        this.cost = this.calculateAxisRemainingNumber();
         this.threshold = threshold;
+
     }
 
     // root constructor
-    public NonogramCombHeuristicState(Board board, List<BitArray>[] validRows, List<BitArray>[] validCols) {
+    public NNGMinCrossHeuristicState(Board board, List<BitArray>[] validRows, List<BitArray>[] validCols) {
         this(board, new List[][]{validRows, validCols}, 1);
 
     }
 
-    private int calculateCost() {
+    private int calculateAxisRemainingNumber() {
         return remainingLineNumber(this.validLines[0]) + remainingLineNumber(this.validLines[1]);
     }
 
@@ -57,17 +57,55 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
         PickResult result = this.pickLessPossibleLine();
         List<BitArray> pLine = result.minLine;
-        Board possibleBoard = board.clone();
+
         for (BitArray possibleLine: pLine) {
 
             List<BitArray>[][] nextValidLines = this.assumeLine(possibleLine, result);
 
             if (nextValidLines != null) {
-                nextStates.offer(new NonogramCombHeuristicState(possibleBoard.clone(), nextValidLines, this.threshold));
+                nextStates.offer(new NNGMinCrossHeuristicState(board, nextValidLines, this.threshold));
             }
         }
+
         this.branchNumber = nextStates.size();
         this.nextStateIterator = nextStates.iterator();
+    }
+
+    private PickResult pickLessPossibleLine() {
+        PickResult result = new PickResult();
+
+        List<BitArray> minLine = null;
+        int minPossiblity = Integer.MAX_VALUE;
+        int compare;
+
+        int minIdx = 0;
+        int minAxis = 0;
+
+        for (int axis = 0; axis < validLines.length; axis++) {
+            for (int i = 0; i < validLines[axis].length; i++) {
+                compare = validLines[axis][i].size();
+
+                if (1 < compare && compare < minPossiblity) {
+                    minPossiblity = compare;
+                    minLine = validLines[axis][i];
+                    minAxis = axis;
+                    minIdx = i;
+                }
+            }
+        }
+
+        assert minLine != null;
+
+        result.minLine = minLine;
+        result.axis = minAxis;
+        result.idx = minIdx;
+        return result;
+    }
+
+    static class PickResult {
+        List<BitArray> minLine;
+        int idx;
+        int axis;
     }
 
     private List<BitArray>[][] assumeLine(BitArray possibleLine, PickResult result) {
@@ -97,7 +135,8 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public int compareTo(HeuristicGameState gameStates) {
-        return -(int)Math.signum(this.getCost() - gameStates.getCost());
+        //sorted by descending order not ascending
+        return (int)Math.signum(gameStates.getCost() - this.getCost());
     }
 
 
@@ -106,18 +145,10 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
         if (!this.isEndState()) {
             return false;
         }
-        this.fillBoard();
+        NonogramSolver.fillBoardByRows(board, validLines[0]);
         return this.board.isBoardValid();
     }
 
-    private void fillBoard() {
-        BoardState boardState = board.getBoardState();
-
-        for (int i = 0; i < validLines[0].length; i++) {
-            boardState.setRow(0, this.validLines[0][i].get(0));
-        }
-
-    }
 
 
     @Override
@@ -127,12 +158,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public void overwrite(GameState state) {
-        if (!(state instanceof NonogramGameState)) {
-            return;
-        }
-
-        NonogramGameState targetState = (NonogramGameState) state;
-        this.board.getBoardState().overwrite(targetState.getBoard().getBoardState());
+        // since we directly modify the original board. We do not do this again
 
     }
 
@@ -145,7 +171,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
 
     @Override
     public boolean hasNext() {
-        if (calBranchPercentage() > threshold) {
+        if (calBranchPercentage() > this.threshold) {
             return false;
         }
         return this.nextStateIterator.hasNext();
@@ -167,42 +193,7 @@ public class NonogramCombHeuristicState implements HeuristicGameState {
     }
 
 
-    PickResult pickLessPossibleLine() {
-        PickResult result = new PickResult();
 
-        List<BitArray> minLine = null;
-        int minPossiblity = Integer.MAX_VALUE;
-        int compare;
-
-        int minIdx = 0;
-        int minAxis = 0;
-
-        for (int axis = 0; axis < validLines.length; axis++) {
-            for (int i = 0; i < validLines[axis].length; i++) {
-                compare = validLines[axis][i].size();
-
-                if (compare > 1 && compare < minPossiblity) {
-                    minLine = validLines[axis][i];
-                    minPossiblity = compare;
-                    minAxis = axis;
-                    minIdx = i;
-                }
-            }
-        }
-
-        assert minLine != null;
-
-        result.minLine = minLine;
-        result.axis = minAxis;
-        result.idx = minIdx;
-        return result;
-    }
-
-    static class PickResult {
-        List<BitArray> minLine;
-        int idx;
-        int axis;
-    }
 
 
 }

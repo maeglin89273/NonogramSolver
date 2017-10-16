@@ -11,7 +11,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.stream.Stream;
 
-public class NonogramHeuristicState extends NonogramGameState implements HeuristicGameState {
+public class NNGHeuristicState extends NonogramGameState implements HeuristicGameState {
 
     private final int axis2;
     private final int cost;
@@ -20,7 +20,7 @@ public class NonogramHeuristicState extends NonogramGameState implements Heurist
 
 
     // branch contructor
-    protected NonogramHeuristicState(Board board, HintMatchTrace[] lineTrace, List<BitArray>[] validlines, int axis2, int progess, float threshold) {
+    protected NNGHeuristicState(Board board, HintMatchTrace[] lineTrace, List<BitArray>[] validlines, int axis2, int progess, float threshold) {
         super(board, validlines, progess, threshold);
         this.axis2 = axis2;
         this.lineTrace = lineTrace;
@@ -28,7 +28,7 @@ public class NonogramHeuristicState extends NonogramGameState implements Heurist
     }
 
     // root constructor
-    public NonogramHeuristicState(Board board, List<BitArray>[] validLines, int axis2) {
+    public NNGHeuristicState(Board board, List<BitArray>[] validLines, int axis2) {
         this(board, HintMatchTrace.createLineOfEmptyTrace(board.getSize()), validLines, axis2, 0, 1f);
     }
 
@@ -63,7 +63,7 @@ public class NonogramHeuristicState extends NonogramGameState implements Heurist
 
 
         for (NextStateData nextStateTmp: this.nextStateTmps) {
-            nextStates.offer(new NonogramHeuristicState(nextStateTmp.board, nextStateTmp.assumptionTrace, validLines, axis2, advancedProgress, this.threshold));
+            nextStates.offer(new NNGHeuristicState(nextStateTmp.board, nextStateTmp.assumptionTrace, validLines, axis2, advancedProgress, this.threshold));
         }
 
 

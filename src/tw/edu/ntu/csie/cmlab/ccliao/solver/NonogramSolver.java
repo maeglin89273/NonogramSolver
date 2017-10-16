@@ -2,11 +2,13 @@ package tw.edu.ntu.csie.cmlab.ccliao.solver;
 
 import tw.edu.ntu.csie.cmlab.ccliao.board.BitArray;
 import tw.edu.ntu.csie.cmlab.ccliao.board.Board;
+import tw.edu.ntu.csie.cmlab.ccliao.board.BoardState;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.DepthFirstSearch;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.IterativeWidening;
 import tw.edu.ntu.csie.cmlab.ccliao.solver.search.TreeSearch;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public class NonogramSolver {
     public static final String SILLY_DFS = "silly-dfs";
@@ -34,6 +36,13 @@ public class NonogramSolver {
 
     }
 
+    public static void fillBoardByRows(Board board, List<BitArray>[] rows) {
+        BoardState boardState = board.getBoardState();
+
+        for (int i = 0; i < rows.length; i++) {
+            boardState.setRow(i, rows[i].get(0));
+        }
+    }
 
 
     private Board solveImpl(Board board, boolean log) {
@@ -42,6 +51,10 @@ public class NonogramSolver {
         this.validRows = generateValidLinesByHints(board.getHint().getRows(), board.getSize());
         this.validCols = generateValidLinesByHints(board.getHint().getColumns(), board.getSize());
         CrossSolve.solve(this.validRows, this.validCols);
+
+        if (this.isBoardSolved(board)) {
+            return board;
+        }
 
         AnalysisLogger.logLineCombimationNumber("after presolve row", this.validRows);
         AnalysisLogger.logLineCombimationNumber("after presolve col", this.validCols);
@@ -62,7 +75,7 @@ public class NonogramSolver {
 
             case DFS2:
                 searchAlgorithm = new IterativeWidening();
-                hasSolved = searchAlgorithm.search(new NonogramCombHeuristicState(board, this.validRows, this.validCols));
+                hasSolved = searchAlgorithm.search(new NNGMinCrossHeuristicState(board, this.validRows, this.validCols));
                 break;
 
             default:
@@ -76,13 +89,25 @@ public class NonogramSolver {
         return hasSolved? board: null;
     }
 
+    private boolean isBoardSolved(Board board) {
+        Predicate<List<BitArray>> sizeEqOne = pLines -> pLines.size() == 1;
+        if (Arrays.stream(this.validRows).allMatch(sizeEqOne) &&
+            Arrays.stream(this.validCols).allMatch(sizeEqOne)) {
+
+            fillBoardByRows(board, this.validRows);
+            return board.isBoardValid();
+        }
+
+        return false;
+    }
+
     private boolean dfs1(Board board) {
         TreeSearch searchAlgorithm = new IterativeWidening();
         if (combinationNumLog(this.validCols) < combinationNumLog(this.validRows)) { // solve column-wise
-            return searchAlgorithm.search(new NonogramHeuristicState(board, validCols, 0));
+            return searchAlgorithm.search(new NNGHeuristicState(board, validCols, 0));
 
         } else { // solve row-wise
-            return searchAlgorithm.search(new NonogramHeuristicState(board, validRows, 1));
+            return searchAlgorithm.search(new NNGHeuristicState(board, validRows, 1));
         }
     }
 
@@ -106,7 +131,6 @@ public class NonogramSolver {
 
         return rowOfLines;
     }
-
 
 
     private static List<BitArray> generateValidLinesByHint(int[] hint, final int lineLength) {
